@@ -7,7 +7,19 @@
  */
 
 import React, {useEffect, useState} from 'react';
-import {Alert, Button, View, Linking, Platform, Text} from 'react-native';
+import {
+  Alert,
+  Button,
+  View,
+  Linking,
+  Platform,
+  Text,
+  StyleSheet,
+  ImageBackground,
+  TouchableOpacity,
+  Modal,
+  Pressable,
+} from 'react-native';
 
 import {
   withWalletConnect,
@@ -31,10 +43,10 @@ const App = () => {
   const web3 = new Web3(new Web3.providers.HttpProvider(rpcProvider));
 
   useEffect(() => {
-    if(connector.connected){
+    if (connector.connected) {
       getBalance();
     }
-  },[connector])
+  }, [connector]);
 
   const redirectToApp = () => {
     Linking.openURL(appScheme)
@@ -60,7 +72,6 @@ const App = () => {
   };
 
   const transaction = () => {
-
     let contract = new web3.eth.Contract(ABI, contractAddr);
     const tokenDecimals = web3.utils.toBN(contractDecimals);
     const tokenAmountToTransfer = web3.utils.toBN(Math.ceil(balance));
@@ -71,10 +82,7 @@ const App = () => {
       .transfer(publicAddr, calculatedTransferValue)
       .encodeABI();
     console.log('******data', data);
-    console.log(
-      '*****val',
-      Math.ceil(balance),
-    );
+    console.log('*****val', Math.ceil(balance));
     connector
       .sendTransaction({
         from: connector.accounts[0],
@@ -91,6 +99,7 @@ const App = () => {
         console.log('tran', res);
         redirectToApp();
         getBalance();
+        setModalVisible(!modalVisible);
       })
       .catch(err => console.log('tran err', err));
   };
@@ -99,31 +108,94 @@ const App = () => {
     let contract = new web3.eth.Contract(ABI, contractAddr);
     const decimals = getDecimals(contractDecimals);
 
-      contract.methods
+    contract.methods
       .balanceOf(connector.accounts[0])
       .call()
       .then(res => {
-        console.log('balance', (res / decimals));
+        console.log('balance', res / decimals);
         setbalance(res / decimals);
       })
       .catch(err => {
         console.log(err);
-        cosnole.log("ACCOUNT",connector.accounts[0])
+        cosnole.log('ACCOUNT', connector.accounts[0]);
       });
   };
 
-  const getDecimals = (size) => {
-    let num = "1";
-    while (num.length < size + 1){
-      num = num + "0";
-    } 
-    
-    return +num;
-  }
+  const getDecimals = size => {
+    let num = '1';
+    while (num.length < size + 1) {
+      num = num + '0';
+    }
 
+    return +num;
+  };
+  const [modalVisible, setModalVisible] = useState(false);
   return (
     <>
-      {connector.connected ? (
+      <ImageBackground
+        source={require('./assets/bg_img.jpeg')}
+        style={styles.centeredView}>
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => {
+            Alert.alert('Modal has been closed.');
+            setModalVisible(!modalVisible);
+          }}>
+          <View style={styles.centeredView}>
+            <View style={styles.modalView}>
+              <Text style={styles.modalText}>
+                {connector.connected
+                  ? `Balance : ${balance.toFixed(2)}`
+                  : 'Pay 100 DogeDash token to Play and Win'}
+              </Text>
+              <View style={{flexDirection:"row"}}>
+              <Pressable
+                disabled={balance <= 0 && connector.connected}
+                style={
+                  balance <= 0 && connector.connected
+                    ? [styles.button, styles.buttonDisable]
+                    : [styles.button, styles.buttonClose]
+                }
+                onPress={() =>
+                  connector.connected ? transaction() : connectWallet()
+                }>
+                <Text style={styles.textStyle}>
+                  {connector.connected ? 'Pay DogeDash' : 'Connect Wallet'}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.button, styles.buttonClose, styles.buttonDiscon]}
+                onPress={() => connector.connected ? connector.killSession() : setModalVisible(!modalVisible)}>
+                <Text style={styles.textStyle}>{connector.connected ? "Disconnect Wallet" : "Exit"}</Text>
+              </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+        <TouchableOpacity onPress={() => setModalVisible(true)}>
+          <ImageBackground
+            source={require('./assets/play.png')}
+            style={[styles.button, styles.buttonPlay]}>
+            <Text></Text>
+          </ImageBackground>
+        </TouchableOpacity>
+      </ImageBackground>
+      {/* <ImageBackground
+        source={require('./assets/bg_img.jpeg')}
+        style={styles.backgroundImage}>
+        <View style={styles.playView}>
+          <TouchableOpacity onPress={() => alert('Button pressed')}>
+            <ImageBackground
+              source={require('./assets/play.png')}
+              style={styles.playBtn}>
+              <Text></Text>
+            </ImageBackground>
+          </TouchableOpacity>
+        </View>
+        {/* {connector.connected ? (
         <View style={{marginTop: '50%'}}>
           <Button
             style={{marginTop: 10}}
@@ -137,10 +209,78 @@ const App = () => {
         <View style={{marginTop: '50%'}}>
           <Button title="Connect Wallet" onPress={() => connectWallet()} />
         </View>
-      )}
+      )} 
+      </ImageBackground> */}
     </>
   );
 };
+
+const styles = StyleSheet.create({
+  backgroundImage: {
+    flex: 1,
+    width: null,
+    height: null,
+    resizeMode: 'cover',
+  },
+  playBtn: {
+    width: '82%',
+    height: '58%',
+  },
+  playView: {
+    flex: 1,
+    justifyContent: 'center',
+    marginTop: '50%',
+    marginLeft: '25%',
+  },
+  centeredView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    resizeMode: 'cover',
+  },
+  modalView: {
+    margin: 20,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 35,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  button: {
+    borderRadius: 10,
+    padding: 10,
+    elevation: 2,
+  },
+  buttonPlay: {
+    width: 160,
+    height: 80,
+  },
+  buttonClose: {
+    backgroundColor: '#2196F3',
+  },
+  buttonDiscon: {
+    marginLeft: 10,
+  },
+  buttonDisable: {
+    backgroundColor: '#cccccc',
+  },
+  textStyle: {
+    color: 'white',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  modalText: {
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+});
 
 export default withWalletConnect(App, {
   clientMeta: {
